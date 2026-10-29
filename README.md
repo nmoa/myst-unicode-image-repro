@@ -1,71 +1,49 @@
-# MyST / Sphinx: Unicode image filenames reproduction
+# MyST / Sphinx Unicode image path reproduction
 
-A minimal reproducer for a suspected bug where **a standard Markdown image link
-with non-ASCII path components** is percent-encoded by the Markdown parser and
-Sphinx does not find/copy the referenced file into the built static site.
+Minimal reproducer for a suspected issue: a normal Markdown image reference
+containing non-ASCII path components is percent-encoded, and the corresponding
+image may not be copied to the Sphinx HTML output.
 
-This repository is a **test case**, not a claim that every listed version is affected.
-The GitHub Actions matrix records the actual behavior, including whether the issue
-has been fixed.
+This is a **test case**, not a claim that every version is affected.
 
-## Inputs
+## Test cases
 
-All three images are valid PNG files and are referenced using the *same*
-standard Markdown syntax, `![alt](path)`:
-
-| Case | Markdown source | Intended result |
+| Case | Markdown | Expected |
 | --- | --- | --- |
-| ASCII control | `![ASCII control](images/diagram.png)` | Copied and displayed |
-| Japanese filename | `![Japanese filename](images/構成図.png)` | Copied and displayed |
-| Japanese directory | `![Japanese directory](図面/diagram.png)` | Copied and displayed |
+| ASCII control | `![ASCII control](images/diagram.png)` | Image copied and displayed |
+| Japanese filename | `![Japanese filename](images/構成図.png)` | Image copied and displayed |
+| Japanese directory | `![Japanese directory](図面/diagram.png)` | Image copied and displayed |
 
-No custom image directive, `html_extra_path`, manual copy, or URL rewriting is used:
-those could mask the issue being tested.
+All three references use ordinary Markdown image syntax, without a custom
+directive or manual asset-copy workaround.
 
-## Run locally (Python 3.12+)
+## Run locally
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
+Requires Python 3.12+.
+
+```sh
 python -m pip install -r requirements.txt
 sphinx-build -E -a -b html docs _build/html
 python scripts/check_output.py _build/html/index.html
 ```
 
-The pinned local configuration is **MyST-Parser 5.1.0 + Sphinx 9.2.0**.
-GitHub Actions tests **Sphinx 9.1.1 and 9.2.0** with MyST-Parser 5.1.0.
+## GitHub Actions
 
-## How to interpret results
+The workflow tests MyST-Parser 5.1.0 against Sphinx 9.1.1 and 9.2.0.
+It reports whether each referenced image exists at the browser-resolved
+location, and uploads the generated HTML and Sphinx build log.
 
-- **PASS (ASCII)** and **FAIL (Japanese)**: the Unicode image path issue is reproduced.
-- **PASS (all three)**: not reproduced with that dependency combination.
-- **FAIL (ASCII)**: the setup itself is broken; investigate before filing an upstream bug.
+- ASCII PASS / Japanese FAIL: suspected Unicode path bug reproduced.
+- All PASS: issue not reproduced in that environment.
+- ASCII FAIL: the baseline itself is broken.
 
-The verifier inspects rendered `<img src="...">` values, URL-decodes the browser-facing
-path, and checks whether the referenced file actually exists under `_build/html`.
-It also prints copied PNG paths. The GitHub Actions job intentionally returns a
-non-zero exit status if an expected Unicode asset is missing and uploads the HTML
-and build log regardless of the result.
+A failed Unicode case intentionally fails CI, while the workflow still
+uploads diagnostic artifacts.
 
-## Publishing as your own GitHub repository
+## Reporting upstream
 
-Unzip/download these files, change into this directory, and run:
+- MyST-Parser: https://github.com/executablebooks/MyST-Parser/issues
+- Sphinx: https://github.com/sphinx-doc/sphinx/issues
 
-```bash
-git init -b main
-git add .
-git commit -m "Add minimal Sphinx/MyST Unicode image reproducer"
-gh repo create myst-unicode-image-repro --public --source=. --remote=origin --push
-```
-
-Choose `--private` instead of `--public` if you do not want a public repository.
-GitHub CLI (`gh`) must be authenticated first (`gh auth login`).
-
-## Upstream bug-report pointers
-
-- MyST-Parser: https://github.com/executablebooks/MyST-Parser/issues/new/choose
-- Sphinx: https://github.com/sphinx-doc/sphinx/issues/new/choose
-
-Include the failing workflow's Sphinx/MyST versions, build warnings, generated HTML
-`src` attributes, and asset file list. Those establish whether the image was not
-copied (asset handling) versus copied under the wrong path (URI handling).
+Include the failing dependency versions, HTML image `src`, generated image
+files, and build log when reporting.
